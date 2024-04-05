@@ -18,7 +18,7 @@ transforms:
     type: sample
     inputs:
       - modify
-    rate: 1 # 1 out of 1 events will be passed through
+    rate: 10 # 1 out of 10 events will be passed through
 
 sinks:
   console_out:

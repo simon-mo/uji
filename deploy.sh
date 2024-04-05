@@ -68,7 +68,8 @@ gcloud run deploy $SERVICE_NAME \
 	--set-env-vars GCS_BUCKET_NAME=$BUCKET_NAME \
   --set-env-vars S3_BUCKET_NAME=$S3_BUCKET_NAME \
   --set-env-vars AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-  --set-env-vars AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+  --set-env-vars AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+  --set-env-vars AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
 
 
 # # NOTE(simon) We don't need this anymore after migrating to Databricks

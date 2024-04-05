@@ -23,10 +23,13 @@ POLICY_DOCUMENT='{
         {
             "Effect": "Allow",
             "Action": [
-                "s3:PutObject",
-                "s3:PutObjectAcl"
+                "s3:ListBucket",
+                "s3:PutObject"
             ],
-            "Resource": "arn:aws:s3:::'$BUCKET_NAME'/*"
+            "Resource": [
+                "arn:aws:s3:::'$BUCKET_NAME'",
+                "arn:aws:s3:::'$BUCKET_NAME'/*"
+            ]
         }
     ]
 }'

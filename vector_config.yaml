@@ -40,3 +40,17 @@ sinks:
       max_events: ${GCS_BATCH_MAX_EVENTS:-1000}
       timeout_secs: ${GCS_BATCH_TIMEOUT_SECS:-300}
     key_prefix: year=%Y/month=%m/day=%d/
+  out_s3:
+    inputs:
+      - modify
+    type: aws_s3
+    bucket: ${S3_BUCKET_NAME:?the bucket name must be supplied via S3_BUCKET_NAME env var}
+    encoding:
+      codec: json
+    framing:
+      method: newline_delimited
+    batch:
+      max_events: ${GCS_BATCH_MAX_EVENTS:-1000}
+      timeout_secs: ${GCS_BATCH_TIMEOUT_SECS:-300}
+    key_prefix: year=%Y/month=%m/day=%d/
+

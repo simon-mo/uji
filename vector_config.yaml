@@ -10,19 +10,8 @@ transforms:
       - in
     source: |
       . = parse_json!(string!(.message))
-  sample:
-    type: sample
-    inputs:
-      - modify
-    rate: 6 # 1 out of 6 events will be passed through
 
 sinks:
-  console_out:
-    type: console
-    encoding:
-      codec: json
-    inputs:
-      - sample
   out:
     inputs:
       - modify
@@ -36,11 +25,11 @@ sinks:
       max_events: ${GCS_BATCH_MAX_EVENTS:-1000}
       timeout_secs: ${GCS_BATCH_TIMEOUT_SECS:-300}
     key_prefix: year=%Y/month=%m/day=%d/
-  out_s3:
+  out_2:
     inputs:
       - modify
-    type: aws_s3
-    bucket: ${S3_BUCKET_NAME:?the bucket name must be supplied via S3_BUCKET_NAME env var}
+    type: gcp_cloud_storage
+    bucket: ${GCS_BUCKET_NAME_2:?the bucket name must be supplied via GCS_BUCKET_NAME_2 env var}
     encoding:
       codec: json
     framing:
@@ -49,4 +38,3 @@ sinks:
       max_events: ${GCS_BATCH_MAX_EVENTS:-1000}
       timeout_secs: ${GCS_BATCH_TIMEOUT_SECS:-300}
     key_prefix: year=%Y/month=%m/day=%d/
-

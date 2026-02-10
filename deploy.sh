@@ -23,7 +23,28 @@ prompt_var DATABRICKS_TABLE_NAME "Databricks table (catalog.schema.table)" ""
 
 REGION="us-central1"
 GIT_SHA=$(git rev-parse --short HEAD)
+FULL_SHA=$(git rev-parse HEAD)
 IMAGE_TAG=sha-$GIT_SHA
+
+# Check that the Docker image was built successfully for this commit
+echo "Checking CI status for $GIT_SHA..."
+WORKFLOW_STATUS=$(gh run list --workflow=docker-publish.yml --commit="$FULL_SHA" --json status,conclusion --jq '.[0].conclusion // .[0].status' 2>/dev/null)
+
+if [ -z "$WORKFLOW_STATUS" ]; then
+  echo "ERROR: No CI workflow run found for commit $GIT_SHA."
+  echo "Has this commit been pushed? Run: git push"
+  exit 1
+elif [ "$WORKFLOW_STATUS" = "success" ]; then
+  echo "CI passed — image simonmok/uji:$IMAGE_TAG is ready."
+elif [ "$WORKFLOW_STATUS" = "in_progress" ] || [ "$WORKFLOW_STATUS" = "queued" ]; then
+  echo "ERROR: CI workflow is still running for commit $GIT_SHA."
+  echo "Wait for it to finish: gh run watch"
+  exit 1
+else
+  echo "ERROR: CI workflow failed for commit $GIT_SHA (status: $WORKFLOW_STATUS)."
+  echo "Check the run: gh run list --workflow=docker-publish.yml"
+  exit 1
+fi
 
 # Show all variables and wait for confirmation
 echo ""
@@ -42,8 +63,15 @@ echo
 
 # Create Cloud Storage bucket if it doesn't exist
 if ! gsutil ls -b gs://$BUCKET_NAME &>/dev/null; then
-  echo "Creating bucket $BUCKET_NAME..."
-  gsutil mb gs://$BUCKET_NAME
+  read -p "Bucket $BUCKET_NAME does not exist. Create it? [y/N]: " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Creating bucket $BUCKET_NAME..."
+    gsutil mb gs://$BUCKET_NAME
+  else
+    echo "Aborting — bucket is required for deployment."
+    exit 1
+  fi
 else
   echo "Bucket $BUCKET_NAME already exists."
 fi

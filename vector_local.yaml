@@ -26,3 +26,19 @@ sinks:
     inputs:
       - modify
       # - in
+  http_forward:
+    type: http
+    inputs:
+      - modify
+    uri: "${FORWARD_URL:-http://localhost:9090}"
+    method: post
+    encoding:
+      codec: json
+    auth:
+      strategy: bearer
+      token: "${FORWARD_AUTH_TOKEN:-test-token}"
+    request:
+      headers:
+        Content-Type: "application/json"
+        unity-catalog-endpoint: "${DATABRICKS_WORKSPACE_URL:-http://localhost}"
+        x-databricks-zerobus-table-name: "${DATABRICKS_TABLE_NAME:-catalog.schema.table}"

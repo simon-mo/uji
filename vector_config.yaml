@@ -4,6 +4,8 @@ sources:
     address: ${HOST}:${PORT}
     headers:
       - "*"
+  vector_logs:
+    type: internal_logs
 
 transforms:
   modify:
@@ -18,7 +20,14 @@ transforms:
     type: sample
     inputs:
       - modify
-    rate: 1 # 1 out of 1 events will be passed through
+    rate: 10 # 1 out of 10 events will be passed through
+  error_filter:
+    type: filter
+    inputs:
+      - vector_logs
+    condition:
+      type: vrl
+      source: includes(["error", "warn"], .metadata.level)
 
 sinks:
   console_out:
@@ -27,6 +36,12 @@ sinks:
       codec: json
     inputs:
       - sample
+  error_log:
+    type: console
+    encoding:
+      codec: json
+    inputs:
+      - error_filter
   out:
     inputs:
       - modify
@@ -40,3 +55,19 @@ sinks:
       max_events: ${GCS_BATCH_MAX_EVENTS:-1000}
       timeout_secs: ${GCS_BATCH_TIMEOUT_SECS:-300}
     key_prefix: year=%Y/month=%m/day=%d/
+  http_forward:
+    type: http
+    inputs:
+      - modify
+    uri: "${FORWARD_URL:?FORWARD_URL is required when http_forward sink is active}"
+    method: post
+    encoding:
+      codec: json
+    auth:
+      strategy: bearer
+      token: "${FORWARD_AUTH_TOKEN:?FORWARD_AUTH_TOKEN is required}"
+    request:
+      headers:
+        Content-Type: "application/json"
+        unity-catalog-endpoint: "${DATABRICKS_WORKSPACE_URL}"
+        x-databricks-zerobus-table-name: "${DATABRICKS_TABLE_NAME}"

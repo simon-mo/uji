@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Uji is a universal JSON ingestor built on [Vector](https://vector.dev). It accepts arbitrary JSON via HTTP, stores it in Google Cloud Storage (date-partitioned), and makes it queryable via BigQuery. There is no application source code — the entire pipeline is defined in Vector YAML configuration files.
+Uji is a universal JSON ingestor built on [Vector](https://vector.dev). It accepts arbitrary JSON via HTTP, stores it in Google Cloud Storage (date-partitioned), and forwards it to configurable HTTP endpoints. There is no application source code — the entire pipeline is defined in Vector YAML configuration files.
 
 ## Common Commands
 
@@ -18,11 +18,17 @@ vector --config vector_local.yaml
 docker build -t uji .
 ```
 
-**Deploy to GCP (Cloud Run + GCS + BigQuery):**
+**Deploy to GCP (Cloud Run + GCS):**
 ```bash
 ./deploy.sh
 ```
-The deploy script prompts interactively for SERVICE_NAME, BUCKET_NAME, DATASET_NAME, and TABLE_NAME.
+The deploy script prompts interactively for SERVICE_NAME, BUCKET_NAME, and optional forwarding vars.
+
+**Run integration tests:**
+```bash
+python3 test_integration.py
+```
+Tests the full pipeline locally: starts a catch-all HTTP server, runs Vector, sends a test payload, and verifies the forwarded request has correct body, auth, and headers.
 
 **Test locally (send a JSON event):**
 ```bash
@@ -31,18 +37,23 @@ curl -X POST http://127.0.0.1:8080 -H "Content-Type: application/json" -d '{"key
 
 ## Architecture
 
-**Data flow:** HTTP POST → Vector HTTP source → `modify` transform (parse JSON, separate metadata) → `sample` transform → console sink + GCS sink → BigQuery external table
+**Data flow:** HTTP POST → Vector HTTP source → `modify` transform (parse JSON, separate metadata) → `sample` transform → console sink + GCS sink + HTTP forward sink
 
 **Key files:**
 - `vector_config.yaml` — Production pipeline config (HTTP source → GCS + console sinks)
 - `vector_local.yaml` — Local dev config (HTTP source → console sink only, API enabled)
-- `deploy.sh` — GCP deployment: creates GCS bucket, deploys Cloud Run service, sets up BigQuery external table
+- `deploy.sh` — GCP deployment: creates GCS bucket, deploys Cloud Run service
 - `Dockerfile` — Based on `timberio/vector:latest-alpine`, runs production config
 
 **Environment variables:**
 - `HOST` / `PORT` — Bind address and port (defaults: `0.0.0.0` / `8080`)
 - `GCS_BUCKET_NAME` — Required in production for the GCS sink
 - `GCS_BATCH_MAX_EVENTS` / `GCS_BATCH_TIMEOUT_SECS` — GCS batching (defaults: 1000 / 300)
+- `FORWARD_URL` — Target HTTP endpoint URL for the forwarding sink (required in production)
+- `FORWARD_AUTH_TOKEN` — Bearer token for the forwarding endpoint (required in production)
+- `DATABRICKS_WORKSPACE_URL` — Value for `unity-catalog-endpoint` header
+- `DATABRICKS_TABLE_NAME` — Value for `x-databricks-zerobus-table-name` header
+- `VECTOR_LOG` — Vector log level (set to `info` in production by `deploy.sh`)
 
 ## CI/CD
 

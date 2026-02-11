@@ -1,0 +1,7 @@
+service_name: uji
+bucket_name: ""
+region: us-central1
+forward_url: ""
+forward_auth_token: ""
+databricks_workspace_url: ""
+databricks_table_name: ""

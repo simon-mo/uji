@@ -20,9 +20,10 @@ docker build -t uji .
 
 **Deploy to GCP (Cloud Run + GCS):**
 ```bash
-./deploy.sh
+cp deploy_config.example.yaml deploy_config.yaml  # fill in your values
+./deploy.sh deploy_config.yaml
 ```
-The deploy script prompts interactively for SERVICE_NAME, BUCKET_NAME, and optional forwarding vars.
+The deploy script reads configuration from a YAML file. Requires `yq` (`brew install yq`). See `deploy_config.example.yaml` for the expected format.
 
 **Run integration tests:**
 ```bash

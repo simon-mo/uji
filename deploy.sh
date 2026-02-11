@@ -1,32 +1,63 @@
 #!/bin/bash
 
-prompt_var() {
-  local var_name=$1 prompt_text=$2 default=$3
-  local current_val="${!var_name}"
-  if [ -z "$current_val" ]; then
-    read -p "$prompt_text [$default]: " input
-    eval "$var_name=\${input:-$default}"
-  fi
-}
+set -euo pipefail
 
-# --- Service ---
-prompt_var SERVICE_NAME "Service name" "uji"
+# --- Usage ---
+if [ $# -lt 1 ]; then
+  echo "Usage: ./deploy.sh <config.yaml>"
+  echo ""
+  echo "  Deploys Uji to Cloud Run using values from a YAML config file."
+  echo "  See deploy_config.example.yaml for the expected format."
+  exit 1
+fi
 
-# --- Storage ---
-prompt_var BUCKET_NAME "GCS bucket name" ""
+CONFIG_FILE="$1"
 
-# --- HTTP Forwarding (optional) ---
-prompt_var FORWARD_URL "Forward URL" ""
-prompt_var FORWARD_AUTH_TOKEN "Bearer token for forwarding" ""
-prompt_var DATABRICKS_WORKSPACE_URL "Databricks workspace URL" ""
-prompt_var DATABRICKS_TABLE_NAME "Databricks table (catalog.schema.table)" ""
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "ERROR: Config file not found: $CONFIG_FILE"
+  exit 1
+fi
 
-REGION="us-central1"
+# --- Check for yq ---
+if ! command -v yq &>/dev/null; then
+  echo "ERROR: yq is required but not installed."
+  echo "Install it with: brew install yq"
+  exit 1
+fi
+
+# --- Read config ---
+SERVICE_NAME=$(yq '.service_name // ""' "$CONFIG_FILE")
+BUCKET_NAME=$(yq '.bucket_name // ""' "$CONFIG_FILE")
+REGION=$(yq '.region // "us-central1"' "$CONFIG_FILE")
+FORWARD_URL=$(yq '.forward_url // ""' "$CONFIG_FILE")
+FORWARD_AUTH_TOKEN=$(yq '.forward_auth_token // ""' "$CONFIG_FILE")
+DATABRICKS_WORKSPACE_URL=$(yq '.databricks_workspace_url // ""' "$CONFIG_FILE")
+DATABRICKS_TABLE_NAME=$(yq '.databricks_table_name // ""' "$CONFIG_FILE")
+
+# --- Validate required fields ---
+if [ -z "$SERVICE_NAME" ]; then
+  echo "ERROR: service_name is required in $CONFIG_FILE"
+  exit 1
+fi
+
+if [ -z "$BUCKET_NAME" ]; then
+  echo "ERROR: bucket_name is required in $CONFIG_FILE"
+  exit 1
+fi
+
+# --- Warn on partial forwarding config ---
+if [ -n "$FORWARD_URL" ] && [ -z "$FORWARD_AUTH_TOKEN" ]; then
+  echo "WARNING: forward_url is set but forward_auth_token is missing"
+fi
+if [ -z "$FORWARD_URL" ] && [ -n "$FORWARD_AUTH_TOKEN" ]; then
+  echo "WARNING: forward_auth_token is set but forward_url is missing"
+fi
+
+# --- Git / CI check ---
 GIT_SHA=$(git rev-parse --short HEAD)
 FULL_SHA=$(git rev-parse HEAD)
 IMAGE_TAG=sha-$GIT_SHA
 
-# Check that the Docker image was built successfully for this commit
 echo "Checking CI status for $GIT_SHA..."
 WORKFLOW_STATUS=$(gh run list --workflow=docker-publish.yml --commit="$FULL_SHA" --json status,conclusion --jq '.[0].conclusion // .[0].status' 2>/dev/null)
 
@@ -46,7 +77,7 @@ else
   exit 1
 fi
 
-# Show all variables and wait for confirmation
+# --- Deployment summary ---
 echo ""
 echo "=== Deployment Summary ==="
 echo "SERVICE_NAME: $SERVICE_NAME"
@@ -61,7 +92,7 @@ echo "=========================="
 read -p "Do you want to continue? " -n 1 -r
 echo
 
-# Create Cloud Storage bucket if it doesn't exist
+# --- Create bucket if needed ---
 if ! gsutil ls -b gs://$BUCKET_NAME &>/dev/null; then
   read -p "Bucket $BUCKET_NAME does not exist. Create it? [y/N]: " -n 1 -r
   echo
@@ -76,14 +107,14 @@ else
   echo "Bucket $BUCKET_NAME already exists."
 fi
 
-# Build env vars string dynamically
+# --- Build env vars ---
 ENV_VARS="GCS_BUCKET_NAME=$BUCKET_NAME,VECTOR_LOG=info"
 [ -n "$FORWARD_URL" ] && ENV_VARS+=",FORWARD_URL=$FORWARD_URL"
 [ -n "$FORWARD_AUTH_TOKEN" ] && ENV_VARS+=",FORWARD_AUTH_TOKEN=$FORWARD_AUTH_TOKEN"
 [ -n "$DATABRICKS_WORKSPACE_URL" ] && ENV_VARS+=",DATABRICKS_WORKSPACE_URL=$DATABRICKS_WORKSPACE_URL"
 [ -n "$DATABRICKS_TABLE_NAME" ] && ENV_VARS+=",DATABRICKS_TABLE_NAME=$DATABRICKS_TABLE_NAME"
 
-# Deploy Cloud Run service
+# --- Deploy ---
 echo "Deploying Cloud Run service $SERVICE_NAME..."
 gcloud run deploy $SERVICE_NAME \
 	--image simonmok/uji:$IMAGE_TAG \

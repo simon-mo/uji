@@ -2,6 +2,6 @@ service_name: uji
 bucket_name: ""
 region: us-central1
 forward_url: ""
-forward_auth_token: ""
+# forward_auth_token is read from the FORWARD_AUTH_TOKEN env var
 databricks_workspace_url: ""
 databricks_table_name: ""

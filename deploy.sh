@@ -30,7 +30,7 @@ SERVICE_NAME=$(yq '.service_name // ""' "$CONFIG_FILE")
 BUCKET_NAME=$(yq '.bucket_name // ""' "$CONFIG_FILE")
 REGION=$(yq '.region // "us-central1"' "$CONFIG_FILE")
 FORWARD_URL=$(yq '.forward_url // ""' "$CONFIG_FILE")
-FORWARD_AUTH_TOKEN=$(yq '.forward_auth_token // ""' "$CONFIG_FILE")
+FORWARD_AUTH_TOKEN="${FORWARD_AUTH_TOKEN:-}"
 DATABRICKS_WORKSPACE_URL=$(yq '.databricks_workspace_url // ""' "$CONFIG_FILE")
 DATABRICKS_TABLE_NAME=$(yq '.databricks_table_name // ""' "$CONFIG_FILE")
 
@@ -47,10 +47,10 @@ fi
 
 # --- Warn on partial forwarding config ---
 if [ -n "$FORWARD_URL" ] && [ -z "$FORWARD_AUTH_TOKEN" ]; then
-  echo "WARNING: forward_url is set but forward_auth_token is missing"
+  echo "WARNING: forward_url is set but FORWARD_AUTH_TOKEN env var is missing"
 fi
 if [ -z "$FORWARD_URL" ] && [ -n "$FORWARD_AUTH_TOKEN" ]; then
-  echo "WARNING: forward_auth_token is set but forward_url is missing"
+  echo "WARNING: FORWARD_AUTH_TOKEN env var is set but forward_url is missing in config"
 fi
 
 # --- Git / CI check ---
